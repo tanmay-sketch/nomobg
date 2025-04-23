@@ -8,13 +8,14 @@ services:
       - "8501:8501"  # Streamlit frontend
 
     volumes:
-      - nomobg_models:/app/u2net/model  # Mount to the canonical location
+      - ~/nomobg/app/u2net/model:/app/u2net/model  # Direct bind mount to host directory
       - /home/ubuntu/tmp:/app/tmp
       - /home/ubuntu/pip_cache:/app/pip_cache
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
 
-volumes:
-  nomobg_models:
-    driver: local 
+# Remove the named volume as we're using a direct bind mount
+# volumes:
+#   nomobg_models:
+#     driver: local 
