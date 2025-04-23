@@ -6,14 +6,19 @@ services:
     ports:
       - "8000:8000"  # FastAPI backend
       - "8501:8501"  # Streamlit frontend
-
     volumes:
-      - ~/nomobg/app/u2net/model:/app/u2net/model  # Direct bind mount to host directory
+      - ~/nomobg/app/u2net/model:/app/u2net/model
       - /home/ubuntu/tmp:/app/tmp
       - /home/ubuntu/pip_cache:/app/pip_cache
     environment:
       - PYTHONUNBUFFERED=1
+      # Fix the API URL - use the container's own address since both services are in same container
+      - API_URL=http://127.0.0.1:8000
     restart: unless-stopped
+    # Make sure container uses host networking so ports are available
+    network_mode: "host"
+
+# Remove the nginx service for now to simplify troubleshooting
 
 # Remove the named volume as we're using a direct bind mount
 # volumes:

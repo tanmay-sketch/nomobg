@@ -25,17 +25,17 @@ RUN mkdir -p /app/u2net/model && \
 # Expose FastAPI and Streamlit ports
 EXPOSE 8000 8501
 
-# Startup script to run both backend and frontend
+# Create a simple startup script that ensures FastAPI starts correctly
 RUN echo '#!/bin/bash\n\
-# Debug directory structure\n\
-echo "Directory structure:"\n\
-find /app -type d | grep u2net\n\
-echo "Symlinks:"\n\
-ls -la /app/app/u2net/model/\n\
+# Start FastAPI in the background with proper logging\n\
 python -m uvicorn app.api:app --host 0.0.0.0 --port 8000 &\n\
-sleep 5\n\
+\n\
+# Give FastAPI time to start\n\
+sleep 10\n\
+\n\
+# Start Streamlit\n\
 streamlit run app/frontend/home.py --server.port 8501 --server.address 0.0.0.0\n\
-wait' > start.sh && chmod +x start.sh
+' > start.sh && chmod +x start.sh
 
 CMD ["./start.sh"]
 
