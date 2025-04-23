@@ -273,14 +273,6 @@ async def test_upload(file: UploadFile = File(...), request: Request = None):
         contents = await file.read()
         file_info["content_length"] = len(contents)
         
-        # Try to identify file type
-        try:
-            mime = magic.Magic(mime=True)
-            detected_type = mime.from_buffer(contents)
-            file_info["detected_type"] = detected_type
-        except ImportError:
-            file_info["detected_type"] = "magic library not available"
-        
         # Save to temp file and get image info
         with tempfile.NamedTemporaryFile(delete=False) as temp_file:
             temp_file.write(contents)
