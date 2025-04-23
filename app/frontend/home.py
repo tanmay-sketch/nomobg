@@ -5,6 +5,13 @@ import io
 import json
 import os
 
+# Get API URL from environment variable or use a default
+# For the FastAPI server, use the internal Docker network address
+API_URL = os.environ.get('API_URL', 'http://127.0.0.1:8000')
+
+# Increase Streamlit's max upload size
+st.set_option('server.maxUploadSize', 100)
+
 # Page configuration
 st.set_page_config(
     page_title="NoMoBG - Background Remover",
