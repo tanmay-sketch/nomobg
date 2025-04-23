@@ -17,9 +17,12 @@ nomo_env/
 # Local development
 .DS_Store
 
-# Other files not needed in the container
-README.md
+# Model files (will be mounted as volume)
+app/u2net/model/*.pth
+
+# Documentation
 *.md
-run.py
-docker-compose.yml
-Dockerfile 
+!README.md
+
+# Docker files
+docker-compose.yml 
