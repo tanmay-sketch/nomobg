@@ -25,4 +25,8 @@ app/u2net/model/*.pth
 !README.md
 
 # Docker files
-docker-compose.yml 
+docker-compose.yml
+
+# Development requirements - we only use prod requirements
+requirements.txt
+!requirements.prod.txt 
