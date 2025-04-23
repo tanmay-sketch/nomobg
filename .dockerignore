@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+.venv
+env/
+venv/
+ENV/
+nomo_env/
+
+# Git
+.git
+.gitignore
+
+# Local development
+.DS_Store
+
+# Other files not needed in the container
+README.md
+*.md
+run.py
+docker-compose.yml
+Dockerfile 

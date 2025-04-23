@@ -1,0 +1,11 @@
+services:
+  nomobg:
+    build: .
+    ports:
+      - "8000:8000"  # FastAPI backend
+      - "8501:8501"  # Streamlit frontend
+    restart: unless-stopped
+
+volumes:
+  nomobg_app_data:
+    driver: local 
