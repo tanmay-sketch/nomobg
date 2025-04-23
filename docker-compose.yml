@@ -12,11 +12,9 @@ services:
       - /home/ubuntu/pip_cache:/app/pip_cache
     environment:
       - PYTHONUNBUFFERED=1
-      # Fix the API URL - use the container's own address since both services are in same container
-      - API_URL=http://127.0.0.1:8000
+      # Use internal Docker service name
+      - API_URL=http://localhost:8000
     restart: unless-stopped
-    # Make sure container uses host networking so ports are available
-    network_mode: "host"
 
 # Remove the nginx service for now to simplify troubleshooting
 
