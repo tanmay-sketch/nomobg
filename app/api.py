@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import io
@@ -9,6 +9,7 @@ import torch
 import torchvision.transforms as T
 import numpy as np
 import sys
+import magic
 
 # Add U2NET directory to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -46,6 +47,14 @@ except ImportError as e:
     #         print("Successfully imported U2NET models directly")
     #     except ImportError as e3:
     #         print(f"Failed all import attempts for U2NET models: {e3}")
+
+# Try to import HEIC support
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    print("HEIC support enabled")
+except ImportError:
+    print("pillow-heif not available - HEIC images may not work")
 
 app = FastAPI()
 
@@ -95,18 +104,24 @@ async def remove_background(file: UploadFile = File(...)):
     """
     Remove background from an image using U2NET model.
     """
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_file:
+    # Get file extension
+    file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ".jpg"
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
         contents = await file.read()
         temp_file.write(contents)
         temp_path = temp_file.name
     
     try:
         try:
-            # Check if the file is a valid image
-            with Image.open(temp_path) as test_img:
-                # Force processing to check for corrupt images
-                test_img.load()
-                print(f"Input image mode: {test_img.mode}, size: {test_img.size}")
+            # Open and convert to RGB if needed
+            image = Image.open(temp_path)
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+                # Save as JPG for processing
+                rgb_path = temp_path + ".jpg"
+                image.save(rgb_path)
+                temp_path = rgb_path
         except Exception as img_error:
             return {"error": f"Invalid input image: {str(img_error)}"}
             
@@ -238,5 +253,56 @@ async def remove_background(file: UploadFile = File(...)):
 @app.get("/")
 async def root():
     return {"message": "Background Removal API"}
+
+@app.post("/test-upload/")
+async def test_upload(file: UploadFile = File(...), request: Request = None):
+    """
+    Test endpoint to diagnose upload issues
+    """
+    try:
+        # Get request information
+        headers = dict(request.headers) if request else {}
+        
+        # Get file info
+        file_info = {
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "headers": headers
+        }
+        
+        # Read file content
+        contents = await file.read()
+        file_info["content_length"] = len(contents)
+        
+        # Try to identify file type
+        try:
+            mime = magic.Magic(mime=True)
+            detected_type = mime.from_buffer(contents)
+            file_info["detected_type"] = detected_type
+        except ImportError:
+            file_info["detected_type"] = "magic library not available"
+        
+        # Save to temp file and get image info
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_file.write(contents)
+            temp_path = temp_file.name
+        
+        try:
+            with Image.open(temp_path) as img:
+                file_info["image_info"] = {
+                    "format": img.format,
+                    "mode": img.mode,
+                    "size": img.size
+                }
+        except Exception as e:
+            file_info["image_error"] = str(e)
+        
+        # Clean up temp file
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        
+        return file_info
+    except Exception as e:
+        return {"error": str(e)}
 
 # Run the server with: uvicorn app.api:app --reload 
