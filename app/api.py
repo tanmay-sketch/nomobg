@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 import io
 import os
 import tempfile
@@ -56,6 +57,16 @@ except ImportError:
     print("pillow-heif not available - HEIC images may not work")
 
 app = FastAPI()
+
+# Add middleware to handle large file uploads
+class UploadSizeMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        # Set a large size limit (100MB)
+        request._body_size_limit = 100 * 1024 * 1024
+        return await call_next(request)
+
+# Add middleware to app
+app.add_middleware(UploadSizeMiddleware)
 
 app.add_middleware(
     CORSMiddleware,

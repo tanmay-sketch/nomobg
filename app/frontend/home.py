@@ -2,89 +2,112 @@ import streamlit as st
 import requests
 from PIL import Image
 import io
+import json
 import os
-
-# Get API URL from environment variable or use a default
-# For the FastAPI server, use the internal Docker network address
-API_URL = os.environ.get('API_URL', 'http://127.0.0.1:8000')
 
 # Page configuration
 st.set_page_config(
     page_title="NoMoBG - Background Remover",
-    page_icon="🎨"
+    page_icon="🎨",
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
+# Custom CSS
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f8f9fa;
+        padding: 20px;
+    }
+    .stApp {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .stButton>button {
+        width: 100%;
+        background-color: #4CAF50;
+        color: white;
+        padding: 14px 20px;
+        margin: 8px 0;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .stButton>button:hover {
+        background-color: #45a049;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 def main():
-    # Simple header
-    st.title("🎨 NoMoBG")
-    st.subheader("Background Removal Tool")
+    st.title("🎨 NoMoBG - Background Remover")
+    st.markdown("""
+    Upload an image and get your image without background!
+    """)
     
-    # Input section
-    st.write("Upload an image to remove its background.")
-    uploaded_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png", "heic"])
+    # File uploader
+    uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
     
-    # Process section
     if uploaded_file is not None:
-        try:
-            # Display original image
-            st.subheader("Original Image")
-            image = Image.open(uploaded_file)
-            st.image(image, use_container_width=True)
-            
-            # Process button - simple, no centering
-            if st.button("Remove Background"):
-                with st.spinner("Processing image..."):
-                    # Prepare the file for upload
-                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)}
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Original Image", use_container_width=True)
+        
+        if st.button("Remove Background"):
+            with st.spinner("Removing background..."):
+                try:
+                    # Prepare the file for upload - create a proper file object
+                    files = {"file": (uploaded_file.name, uploaded_file.getvalue(), "image/jpeg")}
                     
                     # Make request to backend
-                    api_endpoint = f"{API_URL}/remove-background/"
-                    st.info(f"Connecting to API at: {api_endpoint}")
+                    response = requests.post(
+                        "http://localhost:8000/remove-background/",
+                        files=files
+                    )
                     
-                    try:
-                        response = requests.post(
-                            api_endpoint,
-                            files=files,
-                            timeout=60  # Add timeout to avoid hanging forever
-                        )
-                        
-                        # Handle the response
-                        if response.status_code == 200 and 'image' in response.headers.get('content-type', ''):
-                            # Display result image
-                            st.subheader("Result")
+                    # Log content type for debugging
+                    content_type = response.headers.get('content-type', 'unknown')
+                    # st.write(f"Debug - Content type: {content_type}, Length: {len(response.content)}")
+                    
+                    # Check the content type first
+                    if 'json' in content_type:
+                        # This is a JSON response, likely an error
+                        try:
+                            error_data = response.json()
+                            error_msg = error_data.get('error', 'Unknown error')
+                            st.error(f"API Error: {error_msg}")
+                            # Also show the raw JSON for debugging
+                            st.code(response.text, language='json')
+                        except:
+                            st.error(f"Could not parse JSON response: {response.text}")
+                    elif 'image' in content_type and response.status_code == 200:
+                        try:
+                            # Save response content to a file for inspection
                             img_bytes = io.BytesIO(response.content)
                             img_bytes.seek(0)
-                            result_image = Image.open(img_bytes)
-                            st.image(result_image, use_container_width=True)
                             
-                            # Download button - simple, no centering
+                            # Display result
+                            result_image = Image.open(img_bytes)
+                            st.image(result_image, caption="Background Removed", use_column_width=True)
+                            
+                            # Download button
                             img_byte_arr = io.BytesIO()
                             result_image.save(img_byte_arr, format='PNG')
                             img_byte_arr.seek(0)
-                            
                             st.download_button(
-                                label="Download Transparent PNG",
+                                label="Download Image",
                                 data=img_byte_arr,
                                 file_name="background_removed.png",
                                 mime="image/png"
                             )
-                        else:
-                            # Error handling
-                            try:
-                                error_data = response.json()
-                                st.error(f"Error: {error_data.get('error', 'Unknown error')}")
-                            except:
-                                st.error(f"Error processing the image. Status code: {response.status_code}")
-                    except requests.exceptions.ConnectionError:
-                        st.error("Cannot connect to the backend API. Please make sure the API server is running.")
-                    except Exception as e:
-                        st.error(f"API request error: {str(e)}")
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
-    
-    # Footer
-    st.markdown("---")
-    st.caption("NoMoBG • Powered by U2NETP")
+                        except Exception as img_error:
+                            st.error(f"Error processing image: {str(img_error)}")
+                    else:
+                        st.error(f"Unexpected response format (content-type: {content_type})")
+                        st.code(response.text[:1000], language='text')
+                        
+                except Exception as e:
+                    st.error(f"An error occurred: {str(e)}")
 
 if __name__ == "__main__":
     main() 
