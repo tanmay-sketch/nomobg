@@ -6,8 +6,11 @@ services:
     ports:
       - "8000:8000"  # FastAPI backend
       - "8501:8501"  # Streamlit frontend
+
     volumes:
       - nomobg_models:/app/app/u2net/model
+      - /home/ubuntu/tmp:/app/tmp
+      - /home/ubuntu/pip_cache:/app/pip_cache
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
