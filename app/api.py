@@ -12,7 +12,12 @@ import sys
 
 # Add U2NET directory to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
-u2net_dir = os.path.join(current_dir, "u2net")
+print(f"Current directory: {current_dir}")
+# Remove 'app' from path if we're in a Docker container
+if current_dir.startswith('/app/app'):
+    u2net_dir = os.path.join('/app', "u2net")
+else:
+    u2net_dir = os.path.join(current_dir, "u2net")
 model_dir = os.path.join(u2net_dir, "model")
 print(f"U2NET directory: {u2net_dir}")
 print(f"Model directory: {model_dir}")
@@ -110,11 +115,58 @@ async def remove_background(file: UploadFile = File(...)):
         
         # Initialize and load model (U2NETP is smaller and faster)
         net = U2NETP(3, 1)
-        model_path = os.path.join(u2net_dir, "model", "u2netp.pth")
+        
+        # Try multiple possible paths for the model, with special handling for Docker
+        possible_paths = [
+            os.path.join(model_dir, "u2netp.pth"),  # Path from current script
+            "/app/u2net/model/u2netp.pth",          # Direct Docker path
+            "/app/app/u2net/model/u2netp.pth",      # Double app Docker path
+        ]
+        
+        # Debug information
+        for path in possible_paths:
+            print(f"Checking model path: {path}, exists: {os.path.exists(path)}")
+        
+        # Find the first path that exists
+        model_path = next((path for path in possible_paths if os.path.exists(path)), None)
+        
+        # If model not found, try to handle Docker path issues
+        if not model_path:
+            docker_model_path = "/app/u2net/model/u2netp.pth"
+            docker_app_model_path = "/app/app/u2net/model/u2netp.pth"
+            
+            # Create directories if they don't exist
+            os.makedirs(os.path.dirname(docker_model_path), exist_ok=True)
+            os.makedirs(os.path.dirname(docker_app_model_path), exist_ok=True)
+            
+            # Check if we need to create a symlink between paths
+            if os.path.exists(docker_model_path) and not os.path.exists(docker_app_model_path):
+                try:
+                    # Create symlink from docker path to double app path
+                    os.symlink(docker_model_path, docker_app_model_path)
+                    model_path = docker_app_model_path
+                    print(f"Created symlink: {docker_model_path} -> {docker_app_model_path}")
+                except Exception as e:
+                    print(f"Failed to create symlink: {e}")
+            elif os.path.exists(docker_app_model_path) and not os.path.exists(docker_model_path):
+                try:
+                    # Create symlink from double app path to docker path
+                    os.symlink(docker_app_model_path, docker_model_path)
+                    model_path = docker_model_path
+                    print(f"Created symlink: {docker_app_model_path} -> {docker_model_path}")
+                except Exception as e:
+                    print(f"Failed to create symlink: {e}")
+            
+            # Try to find model path again
+            model_path = next((path for path in possible_paths if os.path.exists(path)), None)
         
         # Check if model exists
-        if not os.path.exists(model_path):
-            return {"error": f"Model file not found at: {model_path}"}
+        if not model_path:
+            error_msg = f"Model file not found at any of these locations: {possible_paths}"
+            print(error_msg)
+            return {"error": error_msg}
+        
+        print(f"Using model at: {model_path}")
         
         # Load model weights
         net.load_state_dict(torch.load(model_path, map_location=device))
