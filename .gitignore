@@ -174,3 +174,4 @@ cython_debug/
 .pypirc
 
 nomo_env/
+*.pth
