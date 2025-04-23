@@ -9,7 +9,6 @@ import torch
 import torchvision.transforms as T
 import numpy as np
 import sys
-import magic
 
 # Add U2NET directory to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
